@@ -7,6 +7,7 @@ Leela is a witty, voice-enabled desktop AI assistant designed for Windows.
 - Product spec: `docs/product-spec.md`
 - Architecture: `docs/architecture.md`
 - Roadmap and todo list: `docs/roadmap.md`
+- Development workflow: `docs/development-workflow.md`
 
 ## Planned v1
 
@@ -30,3 +31,10 @@ npm run dev
 ```
 
 Node.js is required locally to install dependencies and run the desktop app.
+
+## Packaging
+
+```bash
+npm run dist:dir
+npm run dist:win
+```

@@ -3,11 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "description": "Leela is a personable desktop AI assistant for Windows.",
+  "author": "vyrena <vyrena9@gmail.com>",
   "main": "dist-electron/main/index.js",
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "dist:dir": "npm run build && electron-builder --dir",
+    "dist:win": "npm run build && electron-builder --win nsis portable",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -23,6 +26,7 @@
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.5.0",
     "electron": "^35.0.0",
+    "electron-builder": "^26.0.12",
     "electron-vite": "^3.1.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"

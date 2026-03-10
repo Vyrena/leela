@@ -1,0 +1,19 @@
+appId: com.vyrena.leela
+productName: Leela
+directories:
+  output: release
+files:
+  - dist/**
+  - dist-electron/**
+  - assets/**
+  - package.json
+win:
+  target:
+    - nsis
+    - portable
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true

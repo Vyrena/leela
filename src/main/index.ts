@@ -1,4 +1,5 @@
 import { Menu, app, BrowserWindow, globalShortcut, ipcMain, nativeImage, Tray } from 'electron'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Store from 'electron-store'
@@ -74,6 +75,12 @@ function sendToRenderer(channel: string, payload: unknown) {
   mainWindow?.webContents.send(channel, payload)
 }
 
+function resolveAssetPath(...segments: string[]) {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, ...segments)
+    : path.join(__dirname, '../../', ...segments)
+}
+
 function setVoiceState(nextVoiceState: VoiceState) {
   voiceState = nextVoiceState
   sendToRenderer('voice:state', voiceState)
@@ -90,6 +97,8 @@ function createWindow() {
     transparent: true,
     resizable: true,
     alwaysOnTop: false,
+    skipTaskbar: true,
+    title: 'Leela',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -103,6 +112,8 @@ function createWindow() {
     }
   })
 
+  mainWindow.setVisibleOnAllWorkspaces(false)
+
   if (process.env.VITE_DEV_SERVER_URL) {
     void mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
@@ -111,6 +122,13 @@ function createWindow() {
 }
 
 function createTrayIcon() {
+  const iconPath = resolveAssetPath('assets', 'icons', 'leela-tray.svg')
+
+  if (fs.existsSync(iconPath)) {
+    const svgFile = fs.readFileSync(iconPath, 'utf8')
+    return nativeImage.createFromDataURL(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svgFile)}`)
+  }
+
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
       <defs>
