@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, nativeImage, Tray } from 'electron'
+import { Menu, app, BrowserWindow, globalShortcut, ipcMain, nativeImage, Tray } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Store from 'electron-store'
@@ -11,7 +11,10 @@ const defaults: LeelaSettings = {
   personality: 'Witty and playful, but warm and helpful.',
   speechEnabled: true,
   notificationsWithVoice: false,
-  globalHotkey: 'CommandOrControl+Shift+L'
+  globalHotkey: 'CommandOrControl+Shift+L',
+  responseLanguage: 'English',
+  voiceInputMode: 'push-to-talk',
+  proactiveFrequency: 45
 }
 
 const store = new Store<{ settings: LeelaSettings }>({
@@ -55,6 +58,24 @@ function createWindow() {
   }
 }
 
+function createTrayIcon() {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#ffcf9d" />
+          <stop offset="100%" stop-color="#ea8f68" />
+        </linearGradient>
+      </defs>
+      <rect x="6" y="6" width="52" height="52" rx="18" fill="url(#g)" />
+      <path d="M24 22h8c7.732 0 14 6.268 14 14v6h-8v-6c0-3.314-2.686-6-6-6h-8v-8z" fill="#311d16" />
+      <circle cx="41" cy="23" r="5" fill="#311d16" />
+    </svg>
+  `.trim()
+
+  return nativeImage.createFromDataURL(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`)
+}
+
 function toggleWindow() {
   if (!mainWindow) return
 
@@ -68,14 +89,26 @@ function toggleWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage.createEmpty()
+  const icon = createTrayIcon()
   tray = new Tray(icon)
   tray.setToolTip('Leela')
   tray.on('click', toggleWindow)
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'Open Leela',
+        click: toggleWindow
+      },
+      {
+        label: 'Quit',
+        click: () => app.quit()
+      }
+    ])
+  )
 }
 
-function registerShortcuts() {
-  const { globalHotkey } = store.get('settings')
+function registerShortcut(globalHotkey: string) {
+  globalShortcut.unregisterAll()
   globalShortcut.register(globalHotkey, toggleWindow)
 }
 
@@ -88,6 +121,7 @@ function registerIpc() {
     }
 
     store.set('settings', nextSettings)
+    registerShortcut(nextSettings.globalHotkey)
     return nextSettings
   })
 }
@@ -95,7 +129,7 @@ function registerIpc() {
 app.whenReady().then(() => {
   createWindow()
   createTray()
-  registerShortcuts()
+  registerShortcut(store.get('settings').globalHotkey)
   registerIpc()
 
   app.on('activate', () => {

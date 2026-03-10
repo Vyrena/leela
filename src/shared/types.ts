@@ -7,10 +7,15 @@ export interface AssistantMessage {
   createdAt: string
 }
 
+export type VoiceInputMode = 'push-to-talk' | 'continuous'
+
 export interface LeelaSettings {
   assistantName: string
   personality: string
   speechEnabled: boolean
   notificationsWithVoice: boolean
   globalHotkey: string
+  responseLanguage: string
+  voiceInputMode: VoiceInputMode
+  proactiveFrequency: number
 }
