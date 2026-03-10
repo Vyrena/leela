@@ -1,0 +1,13 @@
+.DS_Store
+node_modules/
+dist/
+dist-electron/
+out/
+release/
+coverage/
+.env
+.env.*
+*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
