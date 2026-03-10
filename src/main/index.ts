@@ -2,6 +2,8 @@ import { Menu, app, BrowserWindow, globalShortcut, ipcMain, nativeImage, Tray } 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Store from 'electron-store'
+import { DeepgramService } from './services/deepgram'
+import { ElevenLabsService } from './services/elevenlabs'
 import {
   buildConversationForModel,
   createAssistantMessage,
@@ -18,6 +20,7 @@ import type {
   ChatStreamStartEvent,
   LeelaSettings
 } from '../shared/types'
+import type { VoiceState } from '../shared/types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -31,7 +34,11 @@ const defaults: LeelaSettings = {
   voiceInputMode: 'push-to-talk',
   proactiveFrequency: 45,
   openRouterApiKey: '',
-  openRouterModel: 'anthropic/claude-3.5-sonnet'
+  openRouterModel: 'anthropic/claude-3.5-sonnet',
+  deepgramApiKey: '',
+  elevenLabsApiKey: '',
+  elevenLabsVoiceId: '',
+  selectedMicrophoneId: ''
 }
 
 type AppStore = {
@@ -54,9 +61,22 @@ const store = new Store({
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+let voiceState: VoiceState = {
+  status: 'idle',
+  provider: 'none',
+  message: 'Voice services are standing by.'
+}
+
+const deepgramService = new DeepgramService()
+const elevenLabsService = new ElevenLabsService()
 
 function sendToRenderer(channel: string, payload: unknown) {
   mainWindow?.webContents.send(channel, payload)
+}
+
+function setVoiceState(nextVoiceState: VoiceState) {
+  voiceState = nextVoiceState
+  sendToRenderer('voice:state', voiceState)
 }
 
 function createWindow() {
@@ -154,7 +174,43 @@ function registerIpc() {
 
     store.set('settings', nextSettings)
     registerShortcut(nextSettings.globalHotkey)
+
+    if (voiceState.status === 'listening') {
+      setVoiceState(deepgramService.buildState(nextSettings, 'listening'))
+    } else if (voiceState.status === 'speaking') {
+      setVoiceState(elevenLabsService.buildState(nextSettings, 'speaking'))
+    }
+
     return nextSettings
+  })
+  ipcMain.handle('voice:getState', () => voiceState)
+  ipcMain.handle('voice:startListening', () => {
+    const nextState = deepgramService.buildState(store.get('settings'), 'listening')
+    setVoiceState(nextState)
+    return nextState
+  })
+  ipcMain.handle('voice:stopListening', () => {
+    const nextState = deepgramService.buildState(store.get('settings'), 'idle')
+    setVoiceState(nextState)
+    return nextState
+  })
+  ipcMain.handle('voice:previewSpeech', async () => {
+    const settings = store.get('settings')
+    setVoiceState(elevenLabsService.buildState(settings, 'speaking'))
+
+    try {
+      const result = await elevenLabsService.previewVoice(settings, settings.assistantName)
+      setVoiceState(elevenLabsService.buildState(settings, 'idle'))
+      return result
+    } catch (error) {
+      const nextState: VoiceState = {
+        status: 'error',
+        provider: 'elevenlabs',
+        message: error instanceof Error ? error.message : 'Unable to preview voice.'
+      }
+      setVoiceState(nextState)
+      throw error
+    }
   })
   ipcMain.handle('chat:getConversation', () => store.get('conversation'))
   ipcMain.handle('chat:sendMessage', async (_event, request: ChatRequest) => {
@@ -199,6 +255,12 @@ function registerIpc() {
       }
 
       store.set('conversation', nextConversation)
+      if (settings.speechEnabled) {
+        setVoiceState(elevenLabsService.buildState(settings, 'speaking'))
+        setTimeout(() => {
+          setVoiceState(elevenLabsService.buildState(store.get('settings'), 'idle'))
+        }, 300)
+      }
       sendToRenderer('chat:stream-complete', completeEvent)
 
       return nextConversation
@@ -231,6 +293,11 @@ app.whenReady().then(() => {
   createTray()
   registerShortcut(store.get('settings').globalHotkey)
   registerIpc()
+  setVoiceState({
+    status: 'idle',
+    provider: 'none',
+    message: 'Voice services are standing by.'
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

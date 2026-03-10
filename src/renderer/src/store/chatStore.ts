@@ -10,12 +10,10 @@ import type {
 interface ChatState {
   draft: string
   messages: AssistantMessage[]
-  isListening: boolean
   isSending: boolean
   activeRequestId: string | null
   error: string | null
   setDraft: (draft: string) => void
-  toggleListening: () => void
   hydrate: (messages: AssistantMessage[]) => void
   sendMessage: () => Promise<void>
   startStream: (payload: ChatStreamStartEvent) => void
@@ -27,12 +25,10 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set, get) => ({
   draft: '',
   messages: [],
-  isListening: false,
   isSending: false,
   activeRequestId: null,
   error: null,
   setDraft: (draft) => set({ draft }),
-  toggleListening: () => set((state) => ({ isListening: !state.isListening })),
   hydrate: (messages) => set({ messages }),
   sendMessage: async () => {
     const draft = get().draft.trim()

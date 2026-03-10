@@ -2,16 +2,18 @@ interface ComposerProps {
   draft: string
   isListening: boolean
   isSending: boolean
+  voiceMessage: string
   speechEnabled: boolean
   onDraftChange: (draft: string) => void
   onSend: () => Promise<void>
-  onToggleListening: () => void
+  onToggleListening: () => Promise<void>
 }
 
 export function Composer({
   draft,
   isListening,
   isSending,
+  voiceMessage,
   speechEnabled,
   onDraftChange,
   onSend,
@@ -24,6 +26,8 @@ export function Composer({
         <button className="quick-chip" type="button" onClick={() => onDraftChange('What should I focus on for the next 30 minutes?')}>Focus sprint</button>
         <button className="quick-chip" type="button" onClick={() => onDraftChange('Remind me to check Telegram later.')}>Telegram reminder</button>
       </div>
+
+      <div className="voice-status-banner">{voiceMessage}</div>
 
       <div className="composer">
         <textarea
@@ -44,7 +48,7 @@ export function Composer({
             className={`voice-button ${isListening ? 'active' : ''}`}
             type="button"
             disabled={!speechEnabled || isSending}
-            onClick={onToggleListening}
+            onClick={() => void onToggleListening()}
           >
             {isListening ? 'Listening...' : 'Mic'}
           </button>

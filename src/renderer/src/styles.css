@@ -110,6 +110,17 @@ h2 {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
+.voice-status-banner,
+.settings-note {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255, 248, 241, 0.85);
+  border: 1px solid rgba(193, 140, 102, 0.18);
+  color: #6c503b;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+}
+
 .message-list {
   display: flex;
   flex: 1;
@@ -180,6 +191,11 @@ h2 {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.75);
   color: #644632;
+}
+
+.settings-preview-button {
+  width: 100%;
+  margin-bottom: 16px;
 }
 
 .composer {

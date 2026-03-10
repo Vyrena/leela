@@ -6,7 +6,8 @@ import type {
   ChatStreamCompleteEvent,
   ChatStreamErrorEvent,
   ChatStreamStartEvent,
-  LeelaSettings
+  LeelaSettings,
+  VoiceState
 } from '../shared/types'
 
 function subscribe<T>(channel: string, callback: (payload: T) => void) {
@@ -24,11 +25,16 @@ const api = {
     ipcRenderer.invoke('settings:set', partial) as Promise<LeelaSettings>,
   getConversation: () => ipcRenderer.invoke('chat:getConversation') as Promise<AssistantMessage[]>,
   sendMessage: (request: ChatRequest) => ipcRenderer.invoke('chat:sendMessage', request) as Promise<AssistantMessage[]>,
+  getVoiceState: () => ipcRenderer.invoke('voice:getState') as Promise<VoiceState>,
+  startListening: () => ipcRenderer.invoke('voice:startListening') as Promise<VoiceState>,
+  stopListening: () => ipcRenderer.invoke('voice:stopListening') as Promise<VoiceState>,
+  previewSpeech: () => ipcRenderer.invoke('voice:previewSpeech') as Promise<{ ok: boolean; message: string }>,
   onChatStreamStart: (callback: (payload: ChatStreamStartEvent) => void) => subscribe('chat:stream-start', callback),
   onChatStreamChunk: (callback: (payload: ChatStreamChunkEvent) => void) => subscribe('chat:stream-chunk', callback),
   onChatStreamComplete: (callback: (payload: ChatStreamCompleteEvent) => void) =>
     subscribe('chat:stream-complete', callback),
-  onChatStreamError: (callback: (payload: ChatStreamErrorEvent) => void) => subscribe('chat:stream-error', callback)
+  onChatStreamError: (callback: (payload: ChatStreamErrorEvent) => void) => subscribe('chat:stream-error', callback),
+  onVoiceState: (callback: (payload: VoiceState) => void) => subscribe('voice:state', callback)
 }
 
 contextBridge.exposeInMainWorld('leela', api)

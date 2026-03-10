@@ -38,6 +38,14 @@ export interface ChatStreamErrorEvent {
   conversation: AssistantMessage[]
 }
 
+export type VoiceStatus = 'idle' | 'listening' | 'speaking' | 'error'
+
+export interface VoiceState {
+  status: VoiceStatus
+  provider: 'deepgram' | 'elevenlabs' | 'none'
+  message: string
+}
+
 export interface LeelaSettings {
   assistantName: string
   personality: string
@@ -49,4 +57,8 @@ export interface LeelaSettings {
   proactiveFrequency: number
   openRouterApiKey: string
   openRouterModel: string
+  deepgramApiKey: string
+  elevenLabsApiKey: string
+  elevenLabsVoiceId: string
+  selectedMicrophoneId: string
 }

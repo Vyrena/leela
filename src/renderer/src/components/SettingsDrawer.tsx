@@ -4,12 +4,35 @@ import type { LeelaSettings } from '../../../shared/types'
 interface SettingsDrawerProps {
   open: boolean
   settings: LeelaSettings
+  voicePreviewMessage: string | null
   onClose: () => void
   onSave: (settings: LeelaSettings) => Promise<void>
+  onPreviewVoice: () => Promise<void>
 }
 
-export function SettingsDrawer({ open, settings, onClose, onSave }: SettingsDrawerProps) {
+export function SettingsDrawer({ open, settings, voicePreviewMessage, onClose, onSave, onPreviewVoice }: SettingsDrawerProps) {
   const [draft, setDraft] = useState(settings)
+  const [microphones, setMicrophones] = useState<Array<{ deviceId: string; label: string }>>([])
+
+  useEffect(() => {
+    async function loadMicrophones() {
+      if (!navigator.mediaDevices?.enumerateDevices) {
+        return
+      }
+
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const nextMicrophones = devices
+        .filter((device) => device.kind === 'audioinput')
+        .map((device, index) => ({
+          deviceId: device.deviceId,
+          label: device.label || `Microphone ${index + 1}`
+        }))
+
+      setMicrophones(nextMicrophones)
+    }
+
+    void loadMicrophones()
+  }, [])
 
   useEffect(() => {
     setDraft(settings)
@@ -76,6 +99,50 @@ export function SettingsDrawer({ open, settings, onClose, onSave }: SettingsDraw
         </label>
 
         <label>
+          <span>Deepgram API Key</span>
+          <input
+            type="password"
+            value={draft.deepgramApiKey}
+            placeholder="deepgram key"
+            onChange={(event) => setDraft({ ...draft, deepgramApiKey: event.target.value })}
+          />
+        </label>
+
+        <label>
+          <span>ElevenLabs API Key</span>
+          <input
+            type="password"
+            value={draft.elevenLabsApiKey}
+            placeholder="elevenlabs key"
+            onChange={(event) => setDraft({ ...draft, elevenLabsApiKey: event.target.value })}
+          />
+        </label>
+
+        <label>
+          <span>ElevenLabs Voice ID</span>
+          <input
+            value={draft.elevenLabsVoiceId}
+            placeholder="voice id"
+            onChange={(event) => setDraft({ ...draft, elevenLabsVoiceId: event.target.value })}
+          />
+        </label>
+
+        <label>
+          <span>Microphone</span>
+          <select
+            value={draft.selectedMicrophoneId}
+            onChange={(event) => setDraft({ ...draft, selectedMicrophoneId: event.target.value })}
+          >
+            <option value="">System default</option>
+            {microphones.map((microphone) => (
+              <option key={microphone.deviceId} value={microphone.deviceId}>
+                {microphone.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
           <span>Voice Input Mode</span>
           <select
             value={draft.voiceInputMode}
@@ -117,6 +184,12 @@ export function SettingsDrawer({ open, settings, onClose, onSave }: SettingsDraw
           />
           <span>Use voice for important notifications</span>
         </label>
+
+        <button className="ghost-button settings-preview-button" type="button" onClick={() => void onPreviewVoice()}>
+          Preview voice wiring
+        </button>
+
+        {voicePreviewMessage ? <div className="settings-note">{voicePreviewMessage}</div> : null}
 
         <button
           className="save-button"
