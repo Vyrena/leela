@@ -9,6 +9,13 @@ export interface AssistantMessage {
 
 export type VoiceInputMode = 'push-to-talk' | 'continuous'
 
+export interface OpenRouterModel {
+  id: string
+  name: string
+  contextLength: number | null
+  pricingSummary: string | null
+}
+
 export interface ChatRequest {
   requestId: string
   input: string

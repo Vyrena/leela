@@ -1,4 +1,4 @@
-import { Menu, app, BrowserWindow, globalShortcut, ipcMain, nativeImage, Tray } from 'electron'
+import { Menu, app, BrowserWindow, Tray, globalShortcut, ipcMain, nativeImage, screen } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,7 +11,7 @@ import {
   createStarterConversation,
   createUserMessage
 } from './services/assistant'
-import { streamOpenRouterReply } from './services/openrouter'
+import { fetchOpenRouterModels, streamOpenRouterReply } from './services/openrouter'
 import type {
   AssistantMessage,
   ChatRequest,
@@ -84,6 +84,38 @@ function resolveAssetPath(...segments: string[]) {
 function setVoiceState(nextVoiceState: VoiceState) {
   voiceState = nextVoiceState
   sendToRenderer('voice:state', voiceState)
+}
+
+function positionWindowNearTray() {
+  if (!mainWindow) {
+    return
+  }
+
+  const bounds = mainWindow.getBounds()
+  const trayBounds = tray?.getBounds()
+  const display = trayBounds
+    ? screen.getDisplayNearestPoint({ x: trayBounds.x, y: trayBounds.y })
+    : screen.getPrimaryDisplay()
+  const workArea = display.workArea
+
+  if (!trayBounds || (trayBounds.width === 0 && trayBounds.height === 0)) {
+    const x = Math.round(workArea.x + workArea.width - bounds.width - 16)
+    const y = Math.round(workArea.y + workArea.height - bounds.height - 16)
+    mainWindow.setPosition(x, y)
+    return
+  }
+
+  const x = Math.min(
+    Math.max(workArea.x + 8, Math.round(trayBounds.x + trayBounds.width / 2 - bounds.width / 2)),
+    workArea.x + workArea.width - bounds.width - 8
+  )
+
+  const taskbarLooksBottomAligned = trayBounds.y > workArea.y + workArea.height / 2
+  const y = taskbarLooksBottomAligned
+    ? Math.max(workArea.y + 8, trayBounds.y - bounds.height - 8)
+    : Math.min(workArea.y + workArea.height - bounds.height - 8, trayBounds.y + trayBounds.height + 8)
+
+  mainWindow.setPosition(x, y)
 }
 
 function createWindow() {
@@ -177,6 +209,7 @@ function toggleWindow() {
     return
   }
 
+  positionWindowNearTray()
   mainWindow.show()
   mainWindow.focus()
 }
@@ -224,6 +257,7 @@ function registerIpc() {
 
     return nextSettings
   })
+  ipcMain.handle('openrouter:getModels', async () => fetchOpenRouterModels(store.get('settings').openRouterApiKey))
   ipcMain.handle('voice:getState', () => voiceState)
   ipcMain.handle('voice:startListening', () => {
     const nextState = deepgramService.buildState(store.get('settings'), 'listening')

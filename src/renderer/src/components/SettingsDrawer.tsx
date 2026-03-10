@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { LeelaSettings } from '../../../shared/types'
+import type { LeelaSettings, OpenRouterModel } from '../../../shared/types'
 
 interface SettingsDrawerProps {
   open: boolean
@@ -13,6 +13,23 @@ interface SettingsDrawerProps {
 export function SettingsDrawer({ open, settings, voicePreviewMessage, onClose, onSave, onPreviewVoice }: SettingsDrawerProps) {
   const [draft, setDraft] = useState(settings)
   const [microphones, setMicrophones] = useState<Array<{ deviceId: string; label: string }>>([])
+  const [models, setModels] = useState<OpenRouterModel[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [modelsError, setModelsError] = useState<string | null>(null)
+
+  async function loadOpenRouterModels() {
+    setModelsLoading(true)
+    setModelsError(null)
+
+    try {
+      const nextModels = await window.leela.getOpenRouterModels()
+      setModels(nextModels)
+    } catch (error) {
+      setModelsError(error instanceof Error ? error.message : 'Unable to load OpenRouter models.')
+    } finally {
+      setModelsLoading(false)
+    }
+  }
 
   useEffect(() => {
     async function loadMicrophones() {
@@ -37,6 +54,14 @@ export function SettingsDrawer({ open, settings, voicePreviewMessage, onClose, o
   useEffect(() => {
     setDraft(settings)
   }, [settings])
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    void loadOpenRouterModels()
+  }, [open])
 
   if (!open) {
     return null
@@ -92,11 +117,53 @@ export function SettingsDrawer({ open, settings, voicePreviewMessage, onClose, o
 
         <label>
           <span>OpenRouter Model</span>
-          <input
+          <select
             value={draft.openRouterModel}
             onChange={(event) => setDraft({ ...draft, openRouterModel: event.target.value })}
-          />
+          >
+            <option value={draft.openRouterModel}>{draft.openRouterModel}</option>
+            {models
+              .filter((model) => model.id !== draft.openRouterModel)
+              .map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
+                  {model.contextLength ? ` - ${model.contextLength.toLocaleString()} ctx` : ''}
+                </option>
+              ))}
+          </select>
         </label>
+
+        <div className="settings-inline-actions">
+          <button className="ghost-button" type="button" onClick={() => void loadOpenRouterModels()}>
+            {modelsLoading ? 'Refreshing models...' : 'Refresh models'}
+          </button>
+          <div className="settings-inline-copy">
+            {modelsLoading
+              ? 'Fetching available OpenRouter models.'
+              : `${models.length} models loaded${modelsError ? '' : '.'}`}
+          </div>
+        </div>
+
+        {modelsError ? <div className="settings-note">{modelsError}</div> : null}
+
+        {models.length > 0 ? (
+          <div className="settings-model-meta">
+            {(() => {
+              const activeModel = models.find((model) => model.id === draft.openRouterModel)
+
+              if (!activeModel) {
+                return 'Current model is not in the fetched OpenRouter list.'
+              }
+
+              return [
+                activeModel.contextLength ? `${activeModel.contextLength.toLocaleString()} context window` : null,
+                activeModel.pricingSummary
+              ]
+                .filter(Boolean)
+                .join(' - ')
+            })()}
+          </div>
+        ) : null}
 
         <label>
           <span>Deepgram API Key</span>

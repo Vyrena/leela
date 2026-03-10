@@ -1,6 +1,7 @@
-import type { AssistantMessage, LeelaSettings } from '../../shared/types'
+import type { AssistantMessage, LeelaSettings, OpenRouterModel } from '../../shared/types'
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models'
 
 interface OpenRouterStreamOptions {
   messages: AssistantMessage[]
@@ -92,4 +93,56 @@ export async function* streamOpenRouterReply({ messages, settings }: OpenRouterS
       }
     }
   }
+}
+
+function buildOpenRouterHeaders(apiKey?: string) {
+  return {
+    ...(apiKey?.trim() ? { Authorization: `Bearer ${apiKey}` } : {}),
+    'Content-Type': 'application/json',
+    'HTTP-Referer': 'https://github.com/Vyrena/leela',
+    'X-Title': 'Leela'
+  }
+}
+
+export async function fetchOpenRouterModels(apiKey?: string): Promise<OpenRouterModel[]> {
+  const response = await fetch(OPENROUTER_MODELS_URL, {
+    headers: buildOpenRouterHeaders(apiKey)
+  })
+
+  if (!response.ok) {
+    let errorMessage = `OpenRouter models request failed with status ${response.status}.`
+
+    try {
+      const data = (await response.json()) as { error?: { message?: string } }
+      errorMessage = data.error?.message ?? errorMessage
+    } catch {
+      // ignore JSON parsing failure and use fallback message
+    }
+
+    throw new Error(errorMessage)
+  }
+
+  const data = (await response.json()) as {
+    data?: Array<{
+      id: string
+      name?: string
+      context_length?: number
+      pricing?: {
+        prompt?: string
+        completion?: string
+      }
+    }>
+  }
+
+  return (data.data ?? [])
+    .map((model) => ({
+      id: model.id,
+      name: model.name ?? model.id,
+      contextLength: model.context_length ?? null,
+      pricingSummary:
+        model.pricing?.prompt || model.pricing?.completion
+          ? `prompt ${model.pricing?.prompt ?? '?'} / completion ${model.pricing?.completion ?? '?'}`
+          : null
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name))
 }

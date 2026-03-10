@@ -7,6 +7,7 @@ import type {
   ChatStreamErrorEvent,
   ChatStreamStartEvent,
   LeelaSettings,
+  OpenRouterModel,
   VoiceState
 } from '../shared/types'
 
@@ -23,6 +24,7 @@ const api = {
   getSettings: () => ipcRenderer.invoke('settings:get') as Promise<LeelaSettings>,
   setSettings: (partial: Partial<LeelaSettings>) =>
     ipcRenderer.invoke('settings:set', partial) as Promise<LeelaSettings>,
+  getOpenRouterModels: () => ipcRenderer.invoke('openrouter:getModels') as Promise<OpenRouterModel[]>,
   getConversation: () => ipcRenderer.invoke('chat:getConversation') as Promise<AssistantMessage[]>,
   sendMessage: (request: ChatRequest) => ipcRenderer.invoke('chat:sendMessage', request) as Promise<AssistantMessage[]>,
   getVoiceState: () => ipcRenderer.invoke('voice:getState') as Promise<VoiceState>,
