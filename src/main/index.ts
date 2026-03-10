@@ -100,7 +100,7 @@ function createWindow() {
     skipTaskbar: true,
     title: 'Leela',
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.mjs'),
+      preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -112,10 +112,33 @@ function createWindow() {
     }
   })
 
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('[leela] renderer failed to load', { errorCode, errorDescription, validatedURL })
+  })
+
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    const levels = ['verbose', 'info', 'warning', 'error']
+    const label = levels[level] ?? 'log'
+    console.log(`[renderer:${label}] ${message} (${sourceId}:${line})`)
+  })
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[leela] renderer process gone', details)
+  })
+
+  process.on('uncaughtException', (error) => {
+    console.error('[leela] uncaught exception', error)
+  })
+
+  process.on('unhandledRejection', (error) => {
+    console.error('[leela] unhandled rejection', error)
+  })
+
   mainWindow.setVisibleOnAllWorkspaces(false)
 
   if (process.env.VITE_DEV_SERVER_URL) {
     void mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     void mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'))
   }
