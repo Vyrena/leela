@@ -9,6 +9,35 @@ export interface AssistantMessage {
 
 export type VoiceInputMode = 'push-to-talk' | 'continuous'
 
+export interface ChatRequest {
+  requestId: string
+  input: string
+}
+
+export interface ChatStreamStartEvent {
+  requestId: string
+  message: AssistantMessage
+}
+
+export interface ChatStreamChunkEvent {
+  requestId: string
+  messageId: string
+  chunk: string
+}
+
+export interface ChatStreamCompleteEvent {
+  requestId: string
+  message: AssistantMessage
+  conversation: AssistantMessage[]
+}
+
+export interface ChatStreamErrorEvent {
+  requestId: string
+  messageId: string
+  error: string
+  conversation: AssistantMessage[]
+}
+
 export interface LeelaSettings {
   assistantName: string
   personality: string
@@ -18,4 +47,6 @@ export interface LeelaSettings {
   responseLanguage: string
   voiceInputMode: VoiceInputMode
   proactiveFrequency: number
+  openRouterApiKey: string
+  openRouterModel: string
 }

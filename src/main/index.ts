@@ -2,8 +2,22 @@ import { Menu, app, BrowserWindow, globalShortcut, ipcMain, nativeImage, Tray } 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Store from 'electron-store'
-import { buildPrototypeReply, createStarterConversation } from './services/assistant'
-import type { AssistantMessage, LeelaSettings } from '../shared/types'
+import {
+  buildConversationForModel,
+  createAssistantMessage,
+  createStarterConversation,
+  createUserMessage
+} from './services/assistant'
+import { streamOpenRouterReply } from './services/openrouter'
+import type {
+  AssistantMessage,
+  ChatRequest,
+  ChatStreamChunkEvent,
+  ChatStreamCompleteEvent,
+  ChatStreamErrorEvent,
+  ChatStreamStartEvent,
+  LeelaSettings
+} from '../shared/types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -15,7 +29,9 @@ const defaults: LeelaSettings = {
   globalHotkey: 'CommandOrControl+Shift+L',
   responseLanguage: 'English',
   voiceInputMode: 'push-to-talk',
-  proactiveFrequency: 45
+  proactiveFrequency: 45,
+  openRouterApiKey: '',
+  openRouterModel: 'anthropic/claude-3.5-sonnet'
 }
 
 type AppStore = {
@@ -23,16 +39,25 @@ type AppStore = {
   conversation: AssistantMessage[]
 }
 
-const store = new Store<AppStore>({
+type AppStoreAdapter = {
+  get<K extends keyof AppStore>(key: K): AppStore[K]
+  set<K extends keyof AppStore>(key: K, value: AppStore[K]): void
+}
+
+const store = new Store({
   name: 'leela-settings',
   defaults: {
     settings: defaults,
     conversation: createStarterConversation()
   }
-})
+}) as unknown as AppStoreAdapter
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+
+function sendToRenderer(channel: string, payload: unknown) {
+  mainWindow?.webContents.send(channel, payload)
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -132,19 +157,72 @@ function registerIpc() {
     return nextSettings
   })
   ipcMain.handle('chat:getConversation', () => store.get('conversation'))
-  ipcMain.handle('chat:sendMessage', (_event, input: string) => {
-    const userMessage: AssistantMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: input,
-      createdAt: new Date().toISOString()
+  ipcMain.handle('chat:sendMessage', async (_event, request: ChatRequest) => {
+    const settings = store.get('settings')
+    const userMessage = createUserMessage(request.input)
+    const assistantMessage = createAssistantMessage('')
+    const baseConversation = [...store.get('conversation'), userMessage]
+    const startEvent: ChatStreamStartEvent = {
+      requestId: request.requestId,
+      message: assistantMessage
     }
-    const reply = buildPrototypeReply(input, store.get('settings'))
-    const nextConversation = [...store.get('conversation'), userMessage, reply]
 
-    store.set('conversation', nextConversation)
+    sendToRenderer('chat:stream-start', startEvent)
 
-    return nextConversation
+    let content = ''
+
+    try {
+      for await (const chunk of streamOpenRouterReply({
+        messages: buildConversationForModel(baseConversation, settings),
+        settings
+      })) {
+        content += chunk
+
+        const chunkEvent: ChatStreamChunkEvent = {
+          requestId: request.requestId,
+          messageId: assistantMessage.id,
+          chunk
+        }
+
+        sendToRenderer('chat:stream-chunk', chunkEvent)
+      }
+
+      const finalizedAssistantMessage: AssistantMessage = {
+        ...assistantMessage,
+        content: content.trim() || 'I received an empty response from the model, which is rude even by machine standards.'
+      }
+      const nextConversation = [...baseConversation, finalizedAssistantMessage]
+      const completeEvent: ChatStreamCompleteEvent = {
+        requestId: request.requestId,
+        message: finalizedAssistantMessage,
+        conversation: nextConversation
+      }
+
+      store.set('conversation', nextConversation)
+      sendToRenderer('chat:stream-complete', completeEvent)
+
+      return nextConversation
+    } catch (error) {
+      const fallbackAssistantMessage: AssistantMessage = {
+        ...assistantMessage,
+        content:
+          error instanceof Error
+            ? error.message
+            : 'Something went wrong while talking to OpenRouter.'
+      }
+      const nextConversation = [...baseConversation, fallbackAssistantMessage]
+      const errorEvent: ChatStreamErrorEvent = {
+        requestId: request.requestId,
+        messageId: assistantMessage.id,
+        error: fallbackAssistantMessage.content,
+        conversation: nextConversation
+      }
+
+      store.set('conversation', nextConversation)
+      sendToRenderer('chat:stream-error', errorEvent)
+
+      return nextConversation
+    }
   })
 }
 

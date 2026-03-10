@@ -18,20 +18,29 @@ export function createStarterConversation(): AssistantMessage[] {
   ]
 }
 
-export function buildPrototypeReply(input: string, settings: LeelaSettings): AssistantMessage {
-  const normalized = input.toLowerCase()
-
-  let content = `Prototype mode: I caught "${input}" and I am ready to hand this to OpenRouter once the API layer is wired.`
-
-  if (normalized.includes('calendar')) {
-    content = 'Calendar brain noted. In the real integration pass, I will pull your next event and wrap it in a concise briefing instead of making vague promises like a charming goblin.'
-  } else if (normalized.includes('spotify') || normalized.includes('music')) {
-    content = 'Music request detected. Spotify control belongs in the next integration slice, and yes, I fully intend to develop opinions about your playlists.'
-  } else if (normalized.includes('remind')) {
-    content = `Reminder energy detected. With proactive nudges set to every ${settings.proactiveFrequency} minutes, this will become an actual scheduled reminder pipeline soon.`
-  } else if (normalized.includes('turkish') || normalized.includes('turkce')) {
-    content = 'I can understand Turkish-English mixing, but I will answer in English by default just like we planned. Civilized and mildly dramatic.'
-  }
-
+export function createAssistantMessage(content = ''): AssistantMessage {
   return createMessage('assistant', content)
+}
+
+export function createUserMessage(content: string): AssistantMessage {
+  return createMessage('user', content)
+}
+
+export function buildSystemPrompt(settings: LeelaSettings): AssistantMessage {
+  return createMessage(
+    'system',
+    [
+      `You are ${settings.assistantName}, a desktop AI assistant for the user's day-to-day life.`,
+      `Your personality is: ${settings.personality}`,
+      `Always respond in ${settings.responseLanguage}.`,
+      'The user may speak in English or mixed Turkish-English, but you should still reply in English unless directly instructed otherwise.',
+      'Be concise, helpful, lightly witty, and action-oriented.',
+      'When you do not have access to a requested integration yet, say so clearly and offer the next best thing.'
+    ].join(' ')
+  )
+}
+
+export function buildConversationForModel(conversation: AssistantMessage[], settings: LeelaSettings) {
+  const withoutSystem = conversation.filter((message) => message.role !== 'system')
+  return [buildSystemPrompt(settings), ...withoutSystem]
 }

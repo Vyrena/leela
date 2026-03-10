@@ -9,13 +9,38 @@ import type { LeelaSettings } from '../../shared/types'
 export function App() {
   const [settings, setSettings] = useState<LeelaSettings | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const { draft, hydrate, isListening, isSending, messages, sendMessage, setDraft, toggleListening } =
-    useChatStore()
+  const {
+    appendChunk,
+    completeStream,
+    draft,
+    error,
+    failStream,
+    hydrate,
+    isListening,
+    isSending,
+    messages,
+    sendMessage,
+    setDraft,
+    startStream,
+    toggleListening
+  } = useChatStore()
 
   useEffect(() => {
     void window.leela.getSettings().then(setSettings)
     void window.leela.getConversation().then(hydrate)
-  }, [hydrate])
+    const unsubscribers = [
+      window.leela.onChatStreamStart(startStream),
+      window.leela.onChatStreamChunk(appendChunk),
+      window.leela.onChatStreamComplete(completeStream),
+      window.leela.onChatStreamError(failStream)
+    ]
+
+    return () => {
+      for (const unsubscribe of unsubscribers) {
+        unsubscribe()
+      }
+    }
+  }, [appendChunk, completeStream, failStream, hydrate, startStream])
 
   async function handleSave(nextSettings: LeelaSettings) {
     const updated = await window.leela.setSettings(nextSettings)
@@ -41,14 +66,16 @@ export function App() {
             <strong>{settings.speechEnabled ? 'Ready' : 'Muted'}</strong>
           </article>
           <article className="status-pill">
-            <span>Mode</span>
-            <strong>{settings.voiceInputMode}</strong>
+            <span>Model</span>
+            <strong>{settings.openRouterModel.split('/').pop()}</strong>
           </article>
           <article className="status-pill">
             <span>Nudges</span>
             <strong>Every {settings.proactiveFrequency} min</strong>
           </article>
         </div>
+
+        {error ? <div className="error-banner">{error}</div> : null}
 
         <MessageList messages={messages} />
 

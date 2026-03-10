@@ -58,6 +58,24 @@ export function SettingsDrawer({ open, settings, onClose, onSave }: SettingsDraw
         </label>
 
         <label>
+          <span>OpenRouter API Key</span>
+          <input
+            type="password"
+            value={draft.openRouterApiKey}
+            placeholder="sk-or-v1-..."
+            onChange={(event) => setDraft({ ...draft, openRouterApiKey: event.target.value })}
+          />
+        </label>
+
+        <label>
+          <span>OpenRouter Model</span>
+          <input
+            value={draft.openRouterModel}
+            onChange={(event) => setDraft({ ...draft, openRouterModel: event.target.value })}
+          />
+        </label>
+
+        <label>
           <span>Voice Input Mode</span>
           <select
             value={draft.voiceInputMode}
