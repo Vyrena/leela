@@ -1,10 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { LeelaSettings } from '../shared/types'
+import type { AssistantMessage, LeelaSettings } from '../shared/types'
 
 const api = {
   getSettings: () => ipcRenderer.invoke('settings:get') as Promise<LeelaSettings>,
   setSettings: (partial: Partial<LeelaSettings>) =>
-    ipcRenderer.invoke('settings:set', partial) as Promise<LeelaSettings>
+    ipcRenderer.invoke('settings:set', partial) as Promise<LeelaSettings>,
+  getConversation: () => ipcRenderer.invoke('chat:getConversation') as Promise<AssistantMessage[]>,
+  sendMessage: (input: string) => ipcRenderer.invoke('chat:sendMessage', input) as Promise<AssistantMessage[]>
 }
 
 contextBridge.exposeInMainWorld('leela', api)

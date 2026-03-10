@@ -9,11 +9,13 @@ import type { LeelaSettings } from '../../shared/types'
 export function App() {
   const [settings, setSettings] = useState<LeelaSettings | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const { draft, isListening, messages, sendMessage, setDraft, toggleListening } = useChatStore()
+  const { draft, hydrate, isListening, isSending, messages, sendMessage, setDraft, toggleListening } =
+    useChatStore()
 
   useEffect(() => {
     void window.leela.getSettings().then(setSettings)
-  }, [])
+    void window.leela.getConversation().then(hydrate)
+  }, [hydrate])
 
   async function handleSave(nextSettings: LeelaSettings) {
     const updated = await window.leela.setSettings(nextSettings)
@@ -53,6 +55,7 @@ export function App() {
         <Composer
           draft={draft}
           isListening={isListening}
+          isSending={isSending}
           speechEnabled={settings.speechEnabled}
           onDraftChange={setDraft}
           onSend={sendMessage}

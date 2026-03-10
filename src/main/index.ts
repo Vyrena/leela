@@ -2,7 +2,8 @@ import { Menu, app, BrowserWindow, globalShortcut, ipcMain, nativeImage, Tray } 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Store from 'electron-store'
-import type { LeelaSettings } from '../shared/types'
+import { buildPrototypeReply, createStarterConversation } from './services/assistant'
+import type { AssistantMessage, LeelaSettings } from '../shared/types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -17,10 +18,16 @@ const defaults: LeelaSettings = {
   proactiveFrequency: 45
 }
 
-const store = new Store<{ settings: LeelaSettings }>({
+type AppStore = {
+  settings: LeelaSettings
+  conversation: AssistantMessage[]
+}
+
+const store = new Store<AppStore>({
   name: 'leela-settings',
   defaults: {
-    settings: defaults
+    settings: defaults,
+    conversation: createStarterConversation()
   }
 })
 
@@ -123,6 +130,21 @@ function registerIpc() {
     store.set('settings', nextSettings)
     registerShortcut(nextSettings.globalHotkey)
     return nextSettings
+  })
+  ipcMain.handle('chat:getConversation', () => store.get('conversation'))
+  ipcMain.handle('chat:sendMessage', (_event, input: string) => {
+    const userMessage: AssistantMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: input,
+      createdAt: new Date().toISOString()
+    }
+    const reply = buildPrototypeReply(input, store.get('settings'))
+    const nextConversation = [...store.get('conversation'), userMessage, reply]
+
+    store.set('conversation', nextConversation)
+
+    return nextConversation
   })
 }
 
